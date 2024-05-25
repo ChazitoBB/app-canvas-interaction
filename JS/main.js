@@ -12,75 +12,91 @@ const window_width = window.innerWidth; // Ancho de la ventana
 canvas.height = window_height;
 canvas.width = window_width;
 
-// Establece el color de fondo del canvas
-canvas.style.background = "Black";
+// Carga la imagen del alien
+const alienImage = new Image();
+alienImage.src = "/img/Alien.png";
 
-// Define una clase para representar círculos
-class Circle {
-    constructor(x, y, radius, color, textColor, text, speed) {
-        this.posX = x; // Posición x del centro del círculo
-        this.posY = y; // Posición y del centro del círculo
-        this.radius = radius; // Radio del círculo
-        this.color = color; // Color del círculo
-        this.textColor = textColor; // Color del texto
-        this.text = text; // Texto a mostrar en el centro del círculo
-        this.speed = speed; // Velocidad de movimiento del círculo en píxeles por fotograma
-        this.colorIndex = 0; // Índice para controlar la transición de color
-        this.colors = [
-            [255, 0, 0], // Rojo
-            [255, 255, 0], // Amarillo
-            [0, 255, 0], // Verde
-            [0, 255, 255], // Cyan
-            [0, 0, 255], // Azul
-            [255, 0, 255] // Magenta
-        ]; // Colores RGB para la transición
+// Carga la imagen de explosión
+const explosionImage = new Image();
+explosionImage.src = "/img/Explosion.png"; // Ruta de la imagen de explosión
+
+// Define una clase para representar alienígenas (en lugar de círculos)
+class Alien {
+    constructor(x, y, radius, text, speed) {
+        this.posX = x; // Posición x del centro del alien
+        this.posY = y; // Posición y del centro del alien
+        this.radius = radius; // Radio del alien (se usa para detección de clics)
+        this.text = text; // Texto a mostrar en el centro del alien
+        this.speed = speed; // Velocidad de movimiento del alien en píxeles por fotograma
 
         // Velocidad de desplazamiento en los ejes x e y
-        this.dx = 0 * this.speed;
+        this.dx = 0;
         this.dy = -1 * this.speed; // Movimiento hacia arriba
     }
 
-    // Método para dibujar el círculo en el canvas
+    // Método para dibujar el alien en el canvas
     draw(context) {
-        context.beginPath();
+        context.drawImage(alienImage, this.posX - this.radius, this.posY - this.radius, this.radius * 2, this.radius * 2);
 
-        context.fillStyle = `rgb(${this.colors[this.colorIndex][0]}, ${this.colors[this.colorIndex][1]}, ${this.colors[this.colorIndex][2]})`; // Establece el color de relleno del círculo
-        context.arc(this.posX, this.posY, this.radius, 0, Math.PI * 2, false);
-        context.fill(); // Aplica el relleno al círculo en lugar del trazo
-
-        // Dibuja el texto con el color especificado
-        context.fillStyle = this.textColor;
+        // Dibuja el texto en el centro de la imagen
+        context.fillStyle = "black";
         context.textAlign = "center";
         context.textBaseline = "middle";
         context.font = "20px Arial";
         context.fillText(this.text, this.posX, this.posY);
-
-        context.closePath();
     }
 
-    // Método para actualizar la posición del círculo
+    // Método para actualizar la posición del alien
     update(context) {
-        this.draw(context); // Dibuja el círculo en su nueva posición
+        this.draw(context); // Dibuja el alien en su nueva posición
 
-        // Incrementa el índice de color para la transición
-        this.colorIndex = (this.colorIndex + 1) % this.colors.length;
-
-        // Si el círculo alcanza los límites del canvas en la parte superior, lo elimina
+        // Si el alien alcanza los límites del canvas en la parte superior, lo elimina
         if (this.posY - this.radius < 0) {
-            let index = ArregloCirculos.indexOf(this);
+            let index = ArregloAliens.indexOf(this);
             if (index > -1) {
-                ArregloCirculos.splice(index, 1);
+                ArregloAliens.splice(index, 1);
+                gameOver(); // Termina el juego si un alien alcanza la parte superior
             }
         }
 
-        // Si el círculo alcanza los límites del canvas en los ejes x, invierte su dirección
+        // Si el alien alcanza los límites del canvas en los ejes x, invierte su dirección
         if ((this.posX + this.radius) > window_width || (this.posX - this.radius) < 0) {
             this.dx = -this.dx;
         }
 
-        // Actualiza las coordenadas del centro del círculo
+        // Actualiza las coordenadas del centro del alien
         this.posX += this.dx;
         this.posY += this.dy;
+    }
+}
+
+// Clase para la animación de explosión
+class Explosion {
+    constructor(x, y, radius) {
+        this.posX = x; // Posición x del centro de la explosión
+        this.posY = y; // Posición y del centro de la explosión
+        this.radius = radius; // Radio de la explosión
+        this.frame = 0; // Fotograma actual de la animación
+        this.maxFrame = 28; // Número máximo de fotogramas de la animación (ajustar según tu imagen)
+    }
+
+    // Método para dibujar la explosión en el canvas
+    draw(context) {
+        const size = this.radius * 2;
+        const frameWidth = explosionImage.width / this.maxFrame; // Ancho de un fotograma
+        context.drawImage(explosionImage, this.frame * frameWidth, 0, frameWidth, explosionImage.height, this.posX - this.radius, this.posY - this.radius, size, size);
+    }
+
+    // Método para actualizar la animación de la explosión
+    update(context) {
+        this.draw(context);
+        this.frame++;
+        if (this.frame >= this.maxFrame) {
+            let index = ArregloExplosiones.indexOf(this);
+            if (index > -1) {
+                ArregloExplosiones.splice(index, 1);
+            }
+        }
     }
 }
 
@@ -90,88 +106,124 @@ function getDistance(posx1, posy1, posx2, posy2) {
     return result;
 }
 
-// Arreglo para almacenar instancias de círculos
-let ArregloCirculos = [];
-// Número de círculos que se crearán
-let NumeroCirculos = 10;
+// Arreglo para almacenar instancias de aliens
+let ArregloAliens = [];
+// Número inicial de aliens que se crearán
+let NumeroAliens = 5;
 
-// Contador de círculos reventados
-let contadorCirculos = 0;
+// Contador de aliens reventados
+let contadorAliens = 0;
 
-// Bucle para crear múltiples círculos y agregarlos al arreglo
-for (let i = 0; i < NumeroCirculos; i++) {
-    let CirculoCreado = false;
-    while (!CirculoCreado) {
-        // Genera valores aleatorios para la posición, radio y velocidad de cada círculo
-        let randomRadius = Math.floor(Math.random() * 60 + 35);
-        let randomX = Math.random() * (window_width - 2 * randomRadius) + randomRadius;
-        let randomY = window_height + randomRadius; // Aparecen desde abajo
-        let randomSpeed = Math.floor(Math.random() * 2) + 1;
+// Arreglo para almacenar explosiones
+let ArregloExplosiones = [];
 
-        let VerificacionCreacion = true;
-        // Verifica si el nuevo círculo está demasiado cerca de los círculos existentes
-        for (let j = 0; j < ArregloCirculos.length; j++) {
-            if (getDistance(randomX, randomY, ArregloCirculos[j].posX, ArregloCirculos[j].posY) < (randomRadius + ArregloCirculos[j].radius)) {
-                VerificacionCreacion = false;
-                break;
+// Nivel actual
+let nivel = 1;
+
+// Récord de puntuación más alta
+let record = localStorage.getItem("record") || 0;
+
+
+// Bucle para crear múltiples aliens y agregarlos al arreglo
+function crearAliens() {
+    for (let i = 0; i < NumeroAliens; i++) {
+        let AlienCreado = false;
+        while (!AlienCreado) {
+            // Genera valores aleatorios para la posición, radio y velocidad de cada alien
+            let randomRadius = Math.floor(Math.random() * 60 + 40);
+            let randomX = Math.random() * (window_width - 2 * randomRadius) + randomRadius;
+            let randomY = window_height + randomRadius; // Aparecen desde abajo
+            let randomSpeed = 1 + (nivel * 0.2); // Velocidad inicial 1, aumenta 0.1 por nivel
+
+            let VerificacionCreacion = true;
+            // Verifica si el nuevo alien está demasiado cerca de los aliens existentes
+            for (let j = 0; j < ArregloAliens.length; j++) {
+                if (getDistance(randomX, randomY, ArregloAliens[j].posX, ArregloAliens[j].posY) < (randomRadius + ArregloAliens[j].radius)) {
+                    VerificacionCreacion = false;
+                    break;
+                }
             }
-        }
-        // Si el nuevo círculo no está demasiado cerca de los círculos existentes, lo crea y lo agrega al arreglo
-        if (VerificacionCreacion) {
-            let miCirculo = new Circle(randomX, randomY, randomRadius, "blue", "black", (i + 1).toString(), randomSpeed);
+            // Si el nuevo alien no está demasiado cerca de los aliens existentes, lo crea y lo agrega al arreglo
+            if (VerificacionCreacion) {
+                let miAlien = new Alien(randomX, randomY, randomRadius, (i + 1).toString(), randomSpeed);
 
-            ArregloCirculos.push(miCirculo);
-            CirculoCreado = true;
+                ArregloAliens.push(miAlien);
+                AlienCreado = true;
+            }
         }
     }
 }
 
-// Función para actualizar la posición de los círculos y detectar colisiones
-function updateCircle() {
+
+// Función para actualizar la posición de los aliens y detectar colisiones
+function updateAlien() {
     ctx.clearRect(0, 0, window_width, window_height); // Borra el canvas para cada fotograma
 
-    // Itera sobre cada círculo en el arreglo y actualiza su posición
-    ArregloCirculos.forEach(circle => {
-        circle.update(ctx);
+    // Itera sobre cada alien en el arreglo y actualiza su posición
+    ArregloAliens.forEach(alien => {
+        alien.update(ctx);
     });
 
-    // Mostrar el contador de círculos reventados en el canvas
+    // Itera sobre cada explosión en el arreglo y actualiza su animación
+    ArregloExplosiones.forEach(explosion => {
+        explosion.update(ctx);
+    });
+
+    // Mostrar el contador de aliens reventados en el canvas
     ctx.font = "20px Arial";
     ctx.fillStyle = "White";
-    ctx.fillText("Círculos reventados: " + contadorCirculos, 110, 40);
+    ctx.fillText("Score: " + contadorAliens, 60, 40);
+    ctx.fillText("Record: " + record, 60, 60);
+    ctx.fillText("Nivel: " + nivel, 60, 80);
 
-    requestAnimationFrame(updateCircle); // Llama a la función de actualización nuevamente para el siguiente fotograma
+    requestAnimationFrame(updateAlien); // Llama a la función de actualización nuevamente para el siguiente fotograma
 }
 
-// Agregar el evento de clic para eliminar círculos
+// Función para finalizar el juego
+function gameOver() {
+    if (contadorAliens > record) {
+        localStorage.setItem("record", contadorAliens);
+        record = contadorAliens;
+    }
+    alert("Game Over! Puntuación: " + contadorAliens);
+    document.location.reload();
+}
+
+// Agregar el evento de clic para eliminar aliens
 canvas.addEventListener('click', function (event) {
-    const mouseX = event.clientX;
-    const mouseY = event.clientY;
+    // Obtén las coordenadas del clic ajustadas según la posición del canvas
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
 
-    // Verifica si el clic está dentro de algún círculo
-    for (let i = 0; i < ArregloCirculos.length; i++) {
-        const circle = ArregloCirculos[i];
-        const distanceFromCenter = getDistance(mouseX, mouseY, circle.posX, circle.posY);
+    // Verifica si el clic está dentro de algún alien
+    for (let i = 0; i < ArregloAliens.length; i++) {
+        const alien = ArregloAliens[i];
+        const distanceFromCenter = getDistance(mouseX, mouseY, alien.posX, alien.posY);
 
-        // Si el clic está dentro del círculo, elimina el círculo del arreglo y aumenta el contador
-        if (distanceFromCenter <= circle.radius) {
-            ArregloCirculos.splice(i, 1); // Elimina el círculo del arreglo
-            contadorCirculos++; // Incrementa el contador de círculos reventados
-            break; // Sale del bucle una vez que se elimina el círculo
+        // Si el clic está dentro del alien, elimina el alien del arreglo y aumenta el contador
+        if (distanceFromCenter <= alien.radius) {
+            ArregloAliens.splice(i, 1); // Elimina el alien del arreglo
+            contadorAliens++; // Incrementa el contador de aliens reventados
+
+            // Crea una nueva explosión en la posición del alien eliminado
+            let explosion = new Explosion(alien.posX, alien.posY, alien.radius);
+            ArregloExplosiones.push(explosion);
+
+            break; // Sale del bucle una vez que se elimina el alien
         }
+    }
+
+    // Si todos los aliens han sido eliminados, pasa al siguiente nivel
+    if (ArregloAliens.length === 0) {
+        nivel++;
+        NumeroAliens++;
+        crearAliens();
     }
 });
 
-// Función para mostrar las coordenadas X e Y del mouse en el canvas
-function xyMouse(event) {
-    ctx.clearRect(0, 0, 100, 30);
-    ctx.font = "Bold 10px cursive";
-    ctx.fillStyle = "White";
-    ctx.fillText("X: " + event.clientX, 350, 10);
-    ctx.fillText("Y: " + event.clientY, 350, 20);
-}
+// Cambiar el icono del mouse al pasar sobre el canvas
+canvas.style.cursor = "url(/img/Gunshot.png), auto";
 
-// Agrega un listener para el evento 'mousemove' que llame a la función xyMouse
-canvas.addEventListener('mousemove', xyMouse);
-
-updateCircle(); // Llama a la función de actualización inicialmente para iniciar la animación
+crearAliens(); // Llama a la función para crear los aliens inicialmente
+updateAlien(); // Llama a la función de actualización inicialmente para iniciar la animación
